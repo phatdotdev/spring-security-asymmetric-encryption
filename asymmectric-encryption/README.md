@@ -1010,3 +1010,36 @@ public interface RoleRepository extends JpaRepository<Role, String> {
                 .build();
     }
 ````
+## 11. Implement Authentication Controller
+### AuthController
+````java
+@RestController
+@RequestMapping("/api/v1/auth")
+@RequiredArgsConstructor
+@Tag(name="Authentication", description = "Authentication API")
+public class AuthController {
+    private final AuthenticationService authenticationService;
+
+    @PostMapping("/login")
+    public ResponseEntity<AuthenticationResponse> login(
+            @RequestBody  @Valid
+            final AuthenticationRequest request){
+        return ResponseEntity.ok(this.authenticationService.login(request));
+    }
+
+    @PostMapping("/register")
+    public ResponseEntity<Void> register(
+            @Valid @RequestBody
+            final RegistrationRequest request){
+        this.authenticationService.register(request);
+        return ResponseEntity.status(HttpStatus.CREATED).build();
+    }
+
+    @PostMapping("/refresh")
+    public ResponseEntity<AuthenticationResponse> refresh(
+            @RequestBody final RefreshRequest request
+            ){
+        return ResponseEntity.ok(this.authenticationService.refreshToken(request));
+    }
+}
+````
