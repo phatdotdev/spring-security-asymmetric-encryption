@@ -21,3 +21,15 @@ app:
     jwt:
       access-token-expiration: 86400000 # 24 hours
       refresh-token-expiration: 604800000 # 7 days
+    disposable-email-domains:
+      - 10minutemail.com
+      - 10minutemail.net
+      - 20minutemail.com
+      - 33mail.com
+      - anonbox.net
+      - binkmail.com
+      - bobmail.info
+      - burner-mail.com
+      - burnermail.io
+      - crazymailing.com
+

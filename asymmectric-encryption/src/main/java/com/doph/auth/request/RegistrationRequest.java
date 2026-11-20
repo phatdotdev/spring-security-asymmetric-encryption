@@ -1,5 +1,6 @@
 package com.doph.auth.request;
 
+import com.doph.validation.NonDisposableEmail;
 import io.swagger.v3.oas.annotations.media.Schema;
 import jakarta.validation.constraints.Email;
 import jakarta.validation.constraints.NotBlank;
@@ -41,6 +42,7 @@ public class RegistrationRequest {
     @NotBlank(message = "VALIDATION.REGISTRATION.EMAIL.NOT_BLANK")
     @Email(message = "VALIDATION.REGISTRATION.EMAIL.INVALID")
     @Schema(example = "doph@gmail.com")
+    @NonDisposableEmail(message = "VALIDATION.REGISTRATION.EMAIL.DISPOSABLE")
     private String email;
 
     @NotBlank(message = "VALIDATION.REGISTRATION.PHONE.NOT_BLANK")

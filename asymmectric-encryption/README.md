@@ -641,6 +641,12 @@ public class UserController {
 }
 ````
 ## 7. Implement the JwtService
+### Generate Private and Public Key
+#### Private Key
+`openssl genpkey -algorithm RSA -out private_key.pem -pkeyopt rsa_keygen_bits:2048`
+#### Public Key
+`openssl rsa -in private-secret.pem -pubout -out public-secret.pem
+`
 ### KeyUtils
 ````java
 public class KeyUtils {
@@ -1180,4 +1186,72 @@ public class RegistrationRequest {
     private String confirmPassword;
 
 }
+````
+## 14. Implement a custom validation annotation
+### NonDisposableEmail
+````java
+@Target({ElementType.FIELD, ElementType.PARAMETER})
+@Retention(RetentionPolicy.RUNTIME)
+@Constraint(validatedBy = EmailDomainValidator.class)
+public @interface NonDisposableEmail {
+    String message() default "Disposable email addresses are not allowed.";
+    Class<?>[] groups() default {};
+    Class<? extends Payload>[] payload() default {};
+}
+
+````
+### EmailDomainValidator
+````java
+public class EmailDomainValidator implements ConstraintValidator<NonDisposableEmail, String> {
+
+
+    private final Set<String> blocked;
+
+    public EmailDomainValidator(
+            @Value("${app.security.disposable-email}") final Set<String> domains
+    ){
+        this.blocked = Set.copyOf(domains)
+                .stream()
+                .map(String::toLowerCase)
+                .collect(Collectors.toSet());
+    }
+
+    @Override
+    public boolean isValid(String email, ConstraintValidatorContext context) {
+        if(email == null || !email.contains("@")){
+            return true;
+        }
+        final int atIndex = email.indexOf("@") + 1;
+        final int dotIndex = email.lastIndexOf(".");
+        final String domain = email.substring(atIndex, dotIndex);
+        return !this.blocked.contains(domain);
+    }
+}
+````
+### application.yml
+````yaml
+app:
+  security:
+    jwt:
+      access-token-expiration: 86400000 # 24 hours
+      refresh-token-expiration: 604800000 # 7 days
+    disposable-email-domains:
+      - 10minutemail.com
+      - 10minutemail.net
+      - 20minutemail.com
+      - 33mail.com
+      - anonbox.net
+      - binkmail.com
+      - bobmail.info
+      - burner-mail.com
+      - burnermail.io
+      - crazymailing.com
+````
+### RegisterRequest
+````java
+@NotBlank(message = "VALIDATION.REGISTRATION.EMAIL.NOT_BLANK")
+@Email(message = "VALIDATION.REGISTRATION.EMAIL.INVALID")
+@Schema(example = "doph@gmail.com")
+@NonDisposableEmail(message = "VALIDATION.REGISTRATION.EMAIL.DISPOSABLE")
+private String email;
 ````
