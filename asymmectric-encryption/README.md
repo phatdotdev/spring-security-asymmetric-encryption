@@ -1043,3 +1043,50 @@ public class AuthController {
     }
 }
 ````
+## 12. Implement the application auditor aware
+### ApplicationAuditorAware
+````java
+public class ApplicationAuditorAware implements AuditorAware<String> {
+    @Override
+    public Optional<String> getCurrentAuditor() {
+        final Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
+        if(authentication == null
+                || !authentication.isAuthenticated()
+                || authentication instanceof AnonymousAuthenticationToken){
+            return Optional.empty();
+        }
+        final User user = (User) authentication.getPrincipal();
+        return Optional.ofNullable(user.getId());
+    }
+}
+
+````
+### BeanConfig
+````java
+@Configuration
+public class BeanConfig {
+
+    @Bean
+    PasswordEncoder passwordEncoder(){
+        return new BCryptPasswordEncoder();
+    }
+
+    @Bean
+    public AuthenticationManager authenticationManager(final AuthenticationConfiguration config){
+        return config.getAuthenticationManager();
+    }
+
+    @Bean
+    public AuditorAware<String> auditorAware(){
+        return new ApplicationAuditorAware();
+    }
+}
+````
+### JpaConfig
+````java
+@Configuration
+@EnableJpaAuditing(auditorAwareRef = "auditorAware")
+public class JpaConfig {
+
+}
+````
