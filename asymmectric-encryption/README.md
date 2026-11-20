@@ -1,8 +1,591 @@
-1. CREATE AND CONFIG THE PROJECT
-2. ADD THE PROJECT PROPERTIES
-3. IMPLEMENT THE SECURITY CONFIG
-4. IMPLEMENT THE USER ENTITY
-### User Entity
-```java
+## 1. CREATE AND CONFIG THE PROJECT
+### pom.xml
+````xml
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+	xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
+	<modelVersion>4.0.0</modelVersion>
+	<parent>
+		<groupId>org.springframework.boot</groupId>
+		<artifactId>spring-boot-starter-parent</artifactId>
+		<version>4.1.2</version>
+		<relativePath/> <!-- lookup parent from repository -->
+	</parent>
+	<groupId>com.doph</groupId>
+	<artifactId>asymmectric-encryption</artifactId>
+	<version>0.0.1-SNAPSHOT</version>
+	<name/>
+	<description/>
+	<url/>
+	<licenses>
+		<license/>
+	</licenses>
+	<developers>
+		<developer/>
+	</developers>
+	<scm>
+		<connection/>
+		<developerConnection/>
+		<tag/>
+		<url/>
+	</scm>
+	<properties>
+		<java.version>25</java.version>
+		<jjwt.version>0.12.6</jjwt.version>
+		<openapi.version>3.2.0</openapi.version>
+	</properties>
+	<dependencies>
+		<dependency>
+			<groupId>org.springframework.boot</groupId>
+			<artifactId>spring-boot-starter-data-jpa</artifactId>
+		</dependency>
+		<dependency>
+			<groupId>org.springframework.boot</groupId>
+			<artifactId>spring-boot-starter-security</artifactId>
+		</dependency>
+		<dependency>
+			<groupId>org.springframework.boot</groupId>
+			<artifactId>spring-boot-starter-validation</artifactId>
+		</dependency>
+		<dependency>
+			<groupId>org.springframework.boot</groupId>
+			<artifactId>spring-boot-starter-webmvc</artifactId>
+		</dependency>
 
+		<dependency>
+			<groupId>io.jsonwebtoken</groupId>
+			<artifactId>jjwt-api</artifactId>
+			<version>${jjwt.version}</version>
+		</dependency>
+
+		<dependency>
+			<groupId>io.jsonwebtoken</groupId>
+			<artifactId>jjwt-jackson</artifactId>
+			<version>${jjwt.version}</version>
+		</dependency>
+
+		<dependency>
+			<groupId>io.jsonwebtoken</groupId>
+			<artifactId>jjwt-impl</artifactId>
+			<version>${jjwt.version}</version>
+		</dependency>
+
+		<!-- Source: https://mvnrepository.com/artifact/org.springdoc/springdoc-openapi-starter-webmvc-ui -->
+		<dependency>
+			<groupId>org.springdoc</groupId>
+			<artifactId>springdoc-openapi-starter-webmvc-ui</artifactId>
+			<version>${openapi.version}</version>
+		</dependency>
+
+		<dependency>
+			<groupId>org.postgresql</groupId>
+			<artifactId>postgresql</artifactId>
+			<scope>runtime</scope>
+		</dependency>
+		<dependency>
+			<groupId>org.projectlombok</groupId>
+			<artifactId>lombok</artifactId>
+			<optional>true</optional>
+		</dependency>
+		<dependency>
+			<groupId>org.springframework.boot</groupId>
+			<artifactId>spring-boot-starter-data-jpa-test</artifactId>
+			<scope>test</scope>
+		</dependency>
+		<dependency>
+			<groupId>org.springframework.boot</groupId>
+			<artifactId>spring-boot-starter-security-test</artifactId>
+			<scope>test</scope>
+		</dependency>
+		<dependency>
+			<groupId>org.springframework.boot</groupId>
+			<artifactId>spring-boot-starter-validation-test</artifactId>
+			<scope>test</scope>
+		</dependency>
+		<dependency>
+			<groupId>org.springframework.boot</groupId>
+			<artifactId>spring-boot-starter-webmvc-test</artifactId>
+			<scope>test</scope>
+		</dependency>
+	</dependencies>
+
+	<build>
+		<plugins>
+			<plugin>
+				<groupId>org.springframework.boot</groupId>
+				<artifactId>spring-boot-maven-plugin</artifactId>
+			</plugin>
+			<plugin>
+				<groupId>org.apache.maven.plugins</groupId>
+				<artifactId>maven-compiler-plugin</artifactId>
+				<executions>
+					<execution>
+						<id>default-compile</id>
+						<phase>compile</phase>
+						<goals>
+							<goal>compile</goal>
+						</goals>
+						<configuration>
+							<annotationProcessorPaths>
+								<path>
+									<groupId>org.projectlombok</groupId>
+									<artifactId>lombok</artifactId>
+								</path>
+							</annotationProcessorPaths>
+						</configuration>
+					</execution>
+					<execution>
+						<id>default-testCompile</id>
+						<phase>test-compile</phase>
+						<goals>
+							<goal>testCompile</goal>
+						</goals>
+						<configuration>
+							<annotationProcessorPaths>
+								<path>
+									<groupId>org.projectlombok</groupId>
+									<artifactId>lombok</artifactId>
+								</path>
+							</annotationProcessorPaths>
+						</configuration>
+					</execution>
+				</executions>
+			</plugin>
+		</plugins>
+	</build>
+
+</project>
+
+````
+## 2. ADD THE PROJECT PROPERTIES
+### application.yml
+````yaml
+spring:
+  application:
+    name: asymmectric-encryption
+  datasource:
+    url: jdbc:postgresql://${DB_URL}:${DB_PORT}/${DB_NAME}
+    username: ${DB_USERNAME}
+    password: ${DB_PASSWORD}
+    driver-class-name: org.postgresql.Driver
+  jpa:
+    hibernate:
+      ddl-auto: update
+    database: postgresql
+    database-platform: org.hibernate.dialect.PostgreSQLDialect
+    show-sql: false
+    properties:
+      hibernate:
+        format_sql: true
+
+app:
+  security:
+
+````
+## 3. IMPLEMENT THE SECURITY CONFIG
+### Security Config
+````java
+@Configuration
+@EnableWebSecurity
+@EnableMethodSecurity
+@RequiredArgsConstructor
+public class SecurityConfig {
+
+
+    private final JWTFilter jwtFilter;
+    final String[] PUBLIC_URLS = {
+            "/api/v1/auth/login",
+            "/api/v1/auth/register",
+            "/api/v1/auth/refresh",
+            "/v2/api-docs",
+            "/v3/api-docs",
+            "/v3/api-docs/**",
+            "/swagger-resources",
+            "/swagger-resources/**",
+            "/configuration/ui",
+            "/configuration/security",
+            "/swagger-ui/**",
+            "/webjars/**",
+            "/swagger-ui.html",
+            "/",
+            "/index.html"
+    };
+
+    @Bean
+    public SecurityFilterChain filterChain(final HttpSecurity http) throws Exception {
+        return http
+                .csrf(AbstractHttpConfigurer::disable)
+                .authorizeHttpRequests(
+                        auth -> auth
+                                    .requestMatchers(PUBLIC_URLS)
+                                    .permitAll()
+                                    .anyRequest().authenticated()
+                )
+                .sessionManagement(sess -> sess.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
+                .addFilterBefore((Filter) this.jwtFilter, UsernamePasswordAuthenticationFilter.class)
+                .build();
+    }
+
+}
+````
+
+## 4. IMPLEMENT THE USER ENTITY
+### User 
+```java
+@Entity
+@Table(name = "USERS")
+@Getter
+@Setter
+@NoArgsConstructor
+@AllArgsConstructor
+@Builder
+@EntityListeners(AuditingEntityListener.class)
+public class User implements UserDetails {
+
+    @Id
+    @GeneratedValue(strategy = GenerationType.UUID)
+    private String Id;
+    @Column(name = "FIRST_NAME", nullable = false)
+    private String firstName;
+    @Column(name = "LAST_NAME", nullable = false)
+    private String lastName;
+    @Column(name = "EMAIL", nullable = false, unique = true)
+    private String email;
+    @Column(name = "PHONE_NUMBER", nullable = false, unique = true)
+    private String phoneNumber;
+    @Column(name = "PASSWORD", nullable = false)
+    private String password;
+    @Column(name = "DATE_OF_BIRTH")
+    private LocalDate dateOfBirth;
+    @Column(name = "IS_ENABLED")
+    private boolean enabled;
+    @Column(name = "IS_ACCOUNT_CLOCKED")
+    private boolean locked;
+    @Column(name = "IS_CREDENTIALS_EXPIRED")
+    private boolean credentialsExpired;
+    @Column(name = "IS_EMAIL_VERIFIED")
+    private boolean emailVerified;
+    @Column(name = "IS_PHONE_VERIFIED")
+    private boolean phoneVerified;
+
+    @CreatedDate
+    @Column(name = "CREATED_DATE", updatable = false, nullable = false)
+    private LocalDateTime createdDate;
+
+    @LastModifiedDate
+    @Column(name = "LAST_MODIFIED_DATE", insertable = false)
+    private LocalDateTime lastModifiedDate;
+
+    @ManyToMany(
+            cascade = {CascadeType.PERSIST, CascadeType.MERGE},
+            fetch = FetchType.EAGER
+    )
+    @JoinTable(
+            name = "USERS_ROLES",
+            joinColumns = {
+                    @JoinColumn(name = "USERS_ID"),
+            },
+            inverseJoinColumns = {
+                    @JoinColumn(name = "ROLES_ID")
+            }
+    )
+    private List<Role> roles;
+
+
+    @Override
+    public Collection<? extends GrantedAuthority> getAuthorities() {
+        if(CollectionUtils.isEmpty(this.roles)){
+            return List.of();
+        }
+        return this.roles.stream()
+                .map(role -> new SimpleGrantedAuthority(role.getName()))
+                .toList();
+    }
+
+    @Override
+    public String getUsername() {
+        return this.getEmail();
+    }
+
+    @Override
+    public String getPassword(){
+        return this.getPassword();
+    }
+
+    @Override
+    public boolean isAccountNonExpired() {
+        return true;
+    }
+
+    @Override
+    public boolean isAccountNonLocked() {
+        return !this.locked;
+    }
+
+    @Override
+    public boolean isCredentialsNonExpired() {
+        return !this.credentialsExpired;
+    }
+}
 ```
+### BaseEntity
+```java
+@MappedSuperclass
+@Getter
+@Setter
+@NoArgsConstructor
+@AllArgsConstructor
+@SuperBuilder
+@EntityListeners(AuditingEntityListener.class)
+public class BaseEntity {
+
+    @Id
+    @GeneratedValue(strategy = GenerationType.UUID)
+    private String id;
+
+    @CreatedDate
+    @Column(name = "CREATED_DATE", updatable = false, nullable = false)
+    private LocalDateTime createdDate;
+
+    @LastModifiedDate
+    @Column(name = "LAST_MODIFIED_DATE", insertable = false)
+    private LocalDateTime lastModifiedDate;
+
+    @CreatedBy
+    @Column(name = "CREATED_BY", nullable = false, updatable = false)
+    private String createdBy;
+
+    @LastModifiedBy
+    @Column(name = "LAST_MODIFIED_BY", insertable = false)
+    private String lastModifiedBy;
+}
+```
+### Role
+```java
+@Entity
+@Table(name = "ROLES")
+@Getter
+@Setter
+@NoArgsConstructor
+@AllArgsConstructor
+@SuperBuilder
+public class Role extends BaseEntity {
+    @Id
+    @GeneratedValue(strategy = GenerationType.UUID)
+    String Id;
+
+    private String name;
+
+    @ManyToMany(mappedBy = "roles")
+    private List<User> users;
+}
+```
+## 5. IMPLEMENT THE USER SERVICE
+### UserService
+```Java
+public interface UserService extends UserDetailsService {
+
+    void updateProfileInformation(ProfileUpdateRequest request, String userId);
+
+    void changePassword(ChangePasswordRequest request, String userId);
+
+    void deactivateAccount(String userId);
+
+    void reactivateAccount(String userId);
+
+    void deleteAccount(String userId);
+}
+```
+### ChangePasswordRequest
+````java
+@Getter
+@Setter
+@NoArgsConstructor
+@AllArgsConstructor
+@Builder
+public class ChangePasswordRequest {
+    private String currentPassword;
+    private String newPassword;
+    private String confirmNewPassword;
+}
+
+````
+### ProfileUpdateRequest
+````java
+@Getter
+@Setter
+@NoArgsConstructor
+@AllArgsConstructor
+@Builder
+public class ProfileUpdateRequest {
+
+    private String firstName;
+    private String lastName;
+    private LocalDate dateOfBirth;
+
+}
+````
+### UserServiceImpl
+````java
+@Service
+@RequiredArgsConstructor
+@Slf4j
+public class UserServiceImpl implements UserService {
+
+    private final UserRepository userRepository;
+    private final PasswordEncoder passwordEncoder;
+    private final UserMapper userMapper;
+
+
+    @Override
+    public void updateProfileInformation(ProfileUpdateRequest request, String userId) {
+        final User user = this.userRepository.findById(userId)
+                .orElseThrow(() -> new BusinessException(ErrorCode.USER_NOT_FOUND, userId));
+        this.userMapper.mergerUserInfo(user, request);
+        this.userRepository.save(user);
+    }
+
+    @Override
+    public void changePassword(ChangePasswordRequest request, String userId) {
+        if(!request.getNewPassword().equals(request.getConfirmNewPassword())){
+            throw new BusinessException(ErrorCode.CHANGE_PASSWORD_MISMATCH);
+        }
+        final User user = this.userRepository.findById(userId)
+                .orElseThrow(() -> new BusinessException(ErrorCode.USER_NOT_FOUND, userId));
+        if(!this.passwordEncoder.matches(request.getCurrentPassword(), user.getPassword())){
+            throw new BusinessException(ErrorCode.INVALID_CURRENT_PASSWORD);
+        }
+        final String encoded = this.passwordEncoder.encode(request.getNewPassword());
+        user.setPassword(encoded);
+        this.userRepository.save(user);
+    }
+
+    @Override
+    public void deactivateAccount(String userId) {
+        final User user = this.userRepository.findById(userId)
+                .orElseThrow(() -> new BusinessException(ErrorCode.USER_NOT_FOUND, userId));
+        if(!user.isEnabled()){
+            throw new BusinessException(ErrorCode.THE_ACCOUNT_ALREADY_DEACTIVATED);
+        }
+        user.setEnabled(false);
+        this.userRepository.save(user);
+    }
+
+    @Override
+    public void reactivateAccount(String userId) {
+        final User user = this.userRepository.findById(userId)
+                .orElseThrow(() -> new BusinessException(ErrorCode.USER_NOT_FOUND, userId));
+        if(user.isEnabled()){
+            throw new BusinessException(ErrorCode.THE_ACCOUNT_ALREADY_ACTIVATED);
+        }
+        user.setEnabled(true);
+        this.userRepository.save(user);
+    }
+
+    @Override
+    public void deleteAccount(String userId) {
+        // this method need the rest of the entities
+        // the logic is just to schedule a profile for deletion
+        // and a scheduled job will pick the profiles and delete everything
+    }
+
+    @Override
+    public UserDetails loadUserByUsername(final String email) throws UsernameNotFoundException {
+        return userRepository.findByEmailIgnoreCAse(email)
+                .orElseThrow(() -> new UsernameNotFoundException("User not found with username: "+email));
+    }
+}
+
+````
+### BeanConfig
+````java
+@Configuration
+public class BeanConfig {
+
+    @Bean
+    PasswordEncoder passwordEncoder(){
+        return new BCryptPasswordEncoder();
+    }
+
+}
+````
+### UserMapper
+````java
+@Service
+public class UserMapper {
+
+    public void mergerUserInfo(final User user, final ProfileUpdateRequest request){
+        if(StringUtils.isNotBlank(request.getFirstName())
+                && !user.getFirstName().equals(request.getFirstName())
+        ){
+            user.setFirstName(request.getFirstName());
+        }
+        if(StringUtils.isNotBlank(request.getLastName())
+                && !user.getLastName().equals(request.getLastName())
+        ){
+            user.setLastName(request.getLastName());
+        }
+    }
+
+}
+````
+### UserRepository
+````java
+public interface UserRepository extends JpaRepository<User, String> {
+
+    boolean existsByEmailIgnoreCase(String email);
+
+    Optional<User> findByEmailIgnoreCAse(String email);
+
+    boolean existsByPhoneNumber(String phoneNumber);
+
+}
+````
+### BusinessException
+````java
+public class BusinessException extends RuntimeException {
+
+    private final ErrorCode errorCode;
+    private final Object[] args;
+
+    public BusinessException(final ErrorCode errorCode, final Object...args){
+        super(getFormatterMessage(errorCode, args));
+        this.errorCode = errorCode;
+        this.args = args;
+    }
+
+    private static String getFormatterMessage(final ErrorCode errorCode, final Object[] args){
+        if(args != null && args.length > 0){
+            return String.format(errorCode.getDefaultMessage(), args);
+        }
+        return errorCode.getDefaultMessage();
+    }
+}
+````
+### ErrorCode
+````java
+@Getter
+public enum ErrorCode {
+
+    USER_NOT_FOUND("USER_NOT_FOUND", "User not found with id %s", HttpStatus.NOT_FOUND),
+    CHANGE_PASSWORD_MISMATCH("CHANGE_PASSWORD_MISMATCH", "New password and confirm password are not the same", HttpStatus.BAD_REQUEST),
+    INVALID_CURRENT_PASSWORD("INVALID_CURRENT_PASSWORD", "Current password is invalid", HttpStatus.BAD_REQUEST),
+    THE_ACCOUNT_ALREADY_DEACTIVATED("THE_ACCOUNT_ALREADY_DEACTIVATED", "The account is already deactivated", HttpStatus.BAD_REQUEST ),
+    THE_ACCOUNT_ALREADY_ACTIVATED("THE_ACCOUNT_ALREADY_ACTIVATED", "The account is already activated" , HttpStatus.BAD_REQUEST );
+
+    private final String code;
+    private final String defaultMessage;
+    private final HttpStatus status;
+
+    ErrorCode(
+            final String code,
+            final String defaultMessage,
+            final HttpStatus status
+    ){
+        this.code = code;
+        this.defaultMessage = defaultMessage;
+        this.status = status;
+    }
+
+}
+````
