@@ -812,3 +812,74 @@ public class JwtFilter extends OncePerRequestFilter {
     }
 }
 ````
+## 9. Add the Authentication DTO
+### AuthenticationService
+````java
+public interface AuthenticationService {
+
+    AuthenticationResponse login(AuthenticationRequest request);
+
+    void register(RegistrationRequest request);
+
+    AuthenticationResponse refreshToken(RefreshRequest request);
+
+}
+````
+### AuthenticationRequest
+````java
+@Getter
+@Setter
+@AllArgsConstructor
+@NoArgsConstructor
+@Builder
+public class AuthenticationRequest {
+
+    // validation later
+    private String email;
+    private String password;
+
+}
+````
+### RegisterRequest
+````java
+@Getter
+@Setter
+@AllArgsConstructor
+@NoArgsConstructor
+@Builder
+public class RegistrationRequest {
+    private String firstName;
+    private String lastName;
+    private String email;
+    private String phoneNumber;
+    private String password;
+    private String confirmPassword;
+
+}
+````
+### RefreshTokenRequest
+````java
+@Getter
+@Setter
+@AllArgsConstructor
+@NoArgsConstructor
+@Builder
+public class RefreshRequest {
+}
+````
+### AuthenticationResponse
+````java
+@Getter
+@Setter
+@AllArgsConstructor
+@NoArgsConstructor
+@Builder
+public class AuthenticationResponse {
+    @JsonProperty("access_token")
+    private String accessToken;
+    @JsonProperty("refresh_token")
+    private String refreshToken;
+    @JsonProperty("token_type")
+    private String tokenType;
+}
+````
