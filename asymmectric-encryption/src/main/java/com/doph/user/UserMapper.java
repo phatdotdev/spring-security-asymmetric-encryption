@@ -1,6 +1,7 @@
 package com.doph.user;
 
 import ch.qos.logback.core.util.StringUtil;
+import com.doph.auth.request.RegistrationRequest;
 import com.doph.user.request.ProfileUpdateRequest;
 import org.apache.commons.lang3.StringUtils;
 import org.springframework.stereotype.Service;
@@ -21,4 +22,18 @@ public class UserMapper {
         }
     }
 
+    public User toUser(RegistrationRequest request) {
+        return User.builder()
+                .firstName(request.getFirstName())
+                .lastName(request.getLastName())
+                .email(request.getEmail())
+                .phoneNumber(request.getPhoneNumber())
+                .password(request.getPassword())
+                .enabled(true)
+                .locked(false)
+                .credentialsExpired(false)
+                .emailVerified(false)
+                .phoneVerified(false)
+                .build();
+    }
 }
