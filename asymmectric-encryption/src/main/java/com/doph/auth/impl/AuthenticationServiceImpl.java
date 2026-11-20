@@ -30,11 +30,13 @@ import java.util.List;
 @Slf4j
 public class AuthenticationServiceImpl implements AuthenticationService {
 
+
     private final AuthenticationManager authenticationManager;
     private final JwtService jwtService;
     private final UserRepository userRepository;
     private final RoleRepository roleRepository;
     private final UserMapper userMapper;
+
 
     @Override
     public AuthenticationResponse login(AuthenticationRequest request) {

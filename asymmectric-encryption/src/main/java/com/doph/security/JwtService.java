@@ -25,7 +25,7 @@ public class JwtService {
     private long refreshTokenExpiration;
 
     public JwtService() throws NoSuchAlgorithmException, InvalidKeySpecException {
-        this.privateKey = KeyUtils.loadPrivateKey("keys/local-only/private_key.pem");
+        this.privateKey = KeyUtils.loadPrivateKey("keys//local-only/private_key.pem");
         this.publicKey = KeyUtils.loadPublicKey("keys/local-only/public_key.pem");
     }
 
@@ -46,7 +46,7 @@ public class JwtService {
 
     public String refreshAccessToken(final String refreshToken){
         final Claims claims = extractClaims(refreshToken);
-        if(!"REFRESH_TOKEN".equals(claims.get("TOKEN_TYPE"))){
+        if(!"REFRESH_TOKEN".equals(claims.get("token_type"))){
             throw new RuntimeException("Invalid token type");
         }
         if(isTokenExpired(refreshToken)){

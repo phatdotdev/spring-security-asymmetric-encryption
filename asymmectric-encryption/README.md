@@ -687,7 +687,9 @@ public class KeyUtils {
 }
 ````
 ### JwtService
+
 ````java
+
 @Service
 public class JwtService {
 
@@ -704,27 +706,27 @@ public class JwtService {
         this.publicKey = KeyUtils.loadPublicKey("keys/local-only/public_key.pem");
     }
 
-    public String generateAccessToken(final String username){
+    public String generateAccessToken(final String username) {
         final Map<String, Object> claims = Map.of(TOKEN_TYPE, "ACCESS_TOKEN");
         return buildToken(username, claims, this.accessTokenExpiration);
     }
 
-    public String generateFreshToken(final String username){
+    public String generateFreshToken(final String username) {
         final Map<String, Object> claims = Map.of(TOKEN_TYPE, "REFRESH_TOKEN");
         return buildToken(username, claims, this.refreshTokenExpiration);
     }
 
-    public boolean isTokenValid(final String token, final String expectedUsername){
+    public boolean isTokenValid(final String token, final String expectedUsername) {
         final String username = extractUsername(token);
         return username.equals(expectedUsername) && !isTokenExpired(token);
     }
 
-    public String refreshAccessToken(final String refreshToken){
+    public String refreshAccessToken(final String refreshToken) {
         final Claims claims = extractClaims(refreshToken);
-        if(!"REFRESH_TOKEN".equals(claims.get("TOKEN_TYPE"))){
+        if (!"REFRESH_TOKEN".equals(claims.get("TOKEN_TYPE"))) {
             throw new RuntimeException("Invalid token type");
         }
-        if(isTokenExpired(refreshToken)){
+        if (isTokenExpired(refreshToken)) {
             throw new RuntimeException("Refresh Token expired");
         }
         final String username = claims.getSubject();
@@ -741,23 +743,23 @@ public class JwtService {
                 .compact();
     }
 
-    private String extractUsername(final String token){
+    private String extractUsername(final String token) {
         return extractClaims(token).getSubject();
     }
 
-    private Claims extractClaims(final String token){
+    private Claims extractClaims(final String token) {
         try {
             return Jwts.parser()
                     .verifyWith(this.publicKey)
                     .build()
                     .parseSignedClaims(token)
                     .getPayload();
-        } catch (final JwtException e){
+        } catch (final JwtException e) {
             throw new JwtException("Invalid JWT token", e);
         }
     }
 
-    private boolean isTokenExpired(final String token){
+    private boolean isTokenExpired(final String token) {
         return extractClaims(token).getExpiration().before(new Date());
     }
 }
@@ -1433,4 +1435,204 @@ ENTITY_NOT_FOUND("ENTITY_NOTFOUND", "Entity not found" , HttpStatus.NOT_FOUND);
 )
 public class OpenApiConfig {
 }
+````
+## 17. Test the application
+- KeyUtils - Lỗi `KeyUtils.class.getResourceAsStream(pemPath)` -> `KeyUtils.class.getClassLoader().getResourceAsStream(pemPath)`
+- KeyUtils - Lỗi Public Key `final PKCS8EncodedKeySpec spec = new PKCS8EncodedKeySpec(decoded);` -> `final X509EncodedKeySpec spec = new X509EncodedKeySpec(decoded);`
+````java
+ private static String readKeyFromResource(final String pemPath){
+        try(final InputStream is = KeyUtils.class.getClassLoader().getResourceAsStream(pemPath)) {
+            if(is == null){
+                throw new IllegalArgumentException(("Could not find key file " + pemPath));
+            }
+            return new String(is.readAllBytes());
+        }catch (IOException ex){
+            ex.printStackTrace();
+            return null;
+        }
+    }
+````
+- Bổ sung thêm phần config
+```yaml
+spring:
+  application:
+    name: asymmectric-encryption
+  config:
+    import: optional:file:.env[.properties]
+  datasource:
+    url: jdbc:postgresql://${DB_URL}:${DB_PORT}/${DB_NAME}
+    username: ${DB_USERNAME}
+    password: ${DB_PASSWORD}
+    driver-class-name: org.postgresql.Driver
+  jpa:
+    hibernate:
+      ddl-auto: update
+    database: postgresql
+    database-platform: org.hibernate.dialect.PostgreSQLDialect
+    show-sql: false
+    properties:
+      hibernate:
+        format_sql: true
+```
+- Xóa trường Id trong RoleEntity
+```java
+@Entity
+@Table(name = "ROLES")
+@Getter
+@Setter
+@NoArgsConstructor
+@AllArgsConstructor
+@SuperBuilder
+public class Role extends BaseEntity {
+//    @Id
+//    @GeneratedValue(strategy = GenerationType.UUID)
+//    String Id;
+
+    private String name;
+
+    @ManyToMany(mappedBy = "roles")
+    private List<User> users;
+}
+
+```
+- Trong EntityUser sửa hàm lấy password
+```java
+@Override
+    public String getPassword(){
+        return this.password;
+    }
+```
+- Lỗi chính tả
+```java
+ Optional<User> findByEmailIgnoreCase(String email);
+```
+### Sửa file ApplicationExceptionHandler
+```java
+@RestControllerAdvice
+@RequiredArgsConstructor
+@Slf4j
+public class ApplicationExceptionHandler {
+
+    @ExceptionHandler(BusinessException.class)
+    public ResponseEntity<ErrorResponse> handleException(final BusinessException ex){
+        final ErrorResponse body = ErrorResponse
+                .builder()
+                .code(ex.getErrorCode().getCode())
+                .message(ex.getMessage())
+                .build();
+        log.error("Business exception: {}",ex.getMessage());
+        log.debug(ex.getMessage(), ex);
+        return ResponseEntity
+                .status(ex.getErrorCode() != null
+                        ? ex.getErrorCode().getStatus()
+                        : HttpStatus.BAD_REQUEST)
+                .body(body);
+    }
+
+    @ExceptionHandler(DisabledException.class)
+    public ResponseEntity<ErrorResponse> handleException(final DisabledException ex){
+        final ErrorResponse body = ErrorResponse.builder()
+                .code(ErrorCode.ERR_USER_DISABLED.getCode())
+                .message(ErrorCode.ERR_USER_DISABLED.getDefaultMessage())
+                .build();
+        return ResponseEntity.status(ErrorCode.ERR_USER_DISABLED.getStatus())
+                .body(body);
+    }
+
+    @ExceptionHandler(BadCredentialsException.class)
+    public ResponseEntity<ErrorResponse> handleException(final BadCredentialsException ex){
+        log.debug(ex.getMessage(), ex);
+        final ErrorResponse body = ErrorResponse.builder()
+                .code(ErrorCode.BAB_CREDENTIALS.getCode())
+                .message(ErrorCode.BAB_CREDENTIALS.getDefaultMessage())
+                .build();
+        return ResponseEntity.status(ErrorCode.BAB_CREDENTIALS.getStatus())
+                .body(body);
+    }
+
+    @ExceptionHandler(UsernameNotFoundException.class)
+    public ResponseEntity<ErrorResponse> handleException(final UsernameNotFoundException ex){
+        log.debug(ex.getMessage(), ex);
+        final ErrorResponse body = ErrorResponse.builder()
+                .code(ErrorCode.USERNAME_NOT_FOUND.getCode())
+                .message(ErrorCode.USERNAME_NOT_FOUND.getDefaultMessage())
+                .build();
+        return ResponseEntity.status(ErrorCode.USERNAME_NOT_FOUND.getStatus())
+                .body(body);
+    }
+
+    @ExceptionHandler(MethodArgumentNotValidException.class)
+    public ResponseEntity<ErrorResponse> handleException(final MethodArgumentNotValidException ex){
+
+        final List<ValidationError> errors = new ArrayList<>();
+        ex.getAllErrors()
+                        .forEach(error -> {
+                            final String fieldName = ((FieldError) error).getField();
+                            final String errorCode = ((FieldError) error).getCode();
+                            final String message = ((FieldError) error).getDefaultMessage();
+                            errors.add(ValidationError.builder()
+                                    .field(fieldName)
+                                    .code(errorCode)
+                                    .message(message)
+                                    .build());
+                        });
+        log.debug(ex.getMessage(), ex);
+        final ErrorResponse body = ErrorResponse.builder()
+                .validationErrors(errors)
+                .build();
+        return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+                .body(body);
+    }
+
+    @ExceptionHandler(EntityNotFoundException.class)
+    public ResponseEntity<ErrorResponse> handleException(final EntityNotFoundException ex){
+        log.debug(ex.getMessage(), ex);
+        final ErrorResponse body = ErrorResponse.builder()
+                .code(ErrorCode.ENTITY_NOT_FOUND.getCode())
+                .message(ErrorCode.ENTITY_NOT_FOUND.getDefaultMessage())
+                .build();
+        return ResponseEntity.status(ErrorCode.ENTITY_NOT_FOUND.getStatus())
+                .body(body);
+    }
+
+    @ExceptionHandler(Exception.class)
+    public ResponseEntity<ErrorResponse> handleException(final Exception ex){
+        log.debug(ex.getMessage(), ex);
+        final ErrorResponse body = ErrorResponse.builder()
+                .code(ErrorCode.INTERNAL_EXCEPTION.getCode())
+                .message(ErrorCode.INTERNAL_EXCEPTION.getDefaultMessage())
+                .build();
+        return ResponseEntity.status(ErrorCode.INTERNAL_EXCEPTION.getStatus())
+                .body(body);
+    }
+
+}
+```
+### UserController
+````java
+@GetMapping("/me")
+    @ResponseStatus(HttpStatus.OK)
+    public UserResponse getUserInfo(final Authentication authentication){
+        final User user = (User) authentication.getPrincipal();
+        return this.userMapper.toUserResponse(user);
+    }
+````
+### UserMapper
+````java
+public UserResponse toUserResponse(final User user) {
+        return UserResponse.builder()
+                .id(user.getId())
+                .firstName(user.getFirstName())
+                .lastName(user.getLastName())
+                .email(user.getEmail())
+                .phoneNumber(user.getPhoneNumber())
+                .dateOfBirth(user.getDateOfBirth())
+                .enabled(user.isEnabled())
+                .emailVerified(user.isEmailVerified())
+                .phoneVerified(user.isPhoneVerified())
+                .roles(user.getRoles() != null
+                        ? user.getRoles().stream().map(Role::getName).toList()
+                        : List.of())
+                .build();
+    }
 ````

@@ -15,9 +15,9 @@ import java.util.List;
 @AllArgsConstructor
 @SuperBuilder
 public class Role extends BaseEntity {
-    @Id
-    @GeneratedValue(strategy = GenerationType.UUID)
-    String Id;
+//    @Id
+//    @GeneratedValue(strategy = GenerationType.UUID)
+//    String Id;
 
     private String name;
 

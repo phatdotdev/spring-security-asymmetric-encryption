@@ -14,11 +14,12 @@ import org.springframework.validation.FieldError;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.bind.annotation.RestControllerAdvice;
 
 import java.util.ArrayList;
 import java.util.List;
 
-@RestController
+@RestControllerAdvice
 @RequiredArgsConstructor
 @Slf4j
 public class ApplicationExceptionHandler {
@@ -80,6 +81,11 @@ public class ApplicationExceptionHandler {
                             final String fieldName = ((FieldError) error).getField();
                             final String errorCode = ((FieldError) error).getCode();
                             final String message = ((FieldError) error).getDefaultMessage();
+                            errors.add(ValidationError.builder()
+                                    .field(fieldName)
+                                    .code(errorCode)
+                                    .message(message)
+                                    .build());
                         });
         log.debug(ex.getMessage(), ex);
         final ErrorResponse body = ErrorResponse.builder()
@@ -94,7 +100,7 @@ public class ApplicationExceptionHandler {
         log.debug(ex.getMessage(), ex);
         final ErrorResponse body = ErrorResponse.builder()
                 .code(ErrorCode.ENTITY_NOT_FOUND.getCode())
-                .message(ErrorCode.ENTITY_NOT_FOUND.getDefaultMessage())
+                .message(ex.getMessage())
                 .build();
         return ResponseEntity.status(ErrorCode.ENTITY_NOT_FOUND.getStatus())
                 .body(body);
@@ -102,6 +108,7 @@ public class ApplicationExceptionHandler {
 
     @ExceptionHandler(Exception.class)
     public ResponseEntity<ErrorResponse> handleException(final Exception ex){
+        log.error("Unhandled exception: ", ex);
         log.debug(ex.getMessage(), ex);
         final ErrorResponse body = ErrorResponse.builder()
                 .code(ErrorCode.INTERNAL_EXCEPTION.getCode())

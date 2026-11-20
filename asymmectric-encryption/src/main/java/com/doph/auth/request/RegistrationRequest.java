@@ -21,7 +21,7 @@ public class RegistrationRequest {
             message = "VALIDATION.REGISTRATION.FIRSTNAME.SIZE"
     )
     @Pattern(
-            regexp = "^[\\p{L} '-]+$]",
+            regexp = "^[\\p{L} '-]+$",
             message = "VALIDATION.REGISTRATION.FIRSTNAME.PATTERN"
     )
     @Schema(example = "Do")
@@ -33,7 +33,7 @@ public class RegistrationRequest {
             message = "VALIDATION.REGISTRATION.LASTTNAME.SIZE"
     )
     @Pattern(
-            regexp = "^[\\p{L} '-]+$]",
+            regexp = "^[\\p{L} '-]+$",
             message = "VALIDATION.REGISTRATION.LASTNAME.PATTERN"
     )
     @Schema(example = "Phat")

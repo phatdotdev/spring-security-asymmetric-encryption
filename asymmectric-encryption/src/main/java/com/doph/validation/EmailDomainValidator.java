@@ -13,7 +13,7 @@ public class EmailDomainValidator implements ConstraintValidator<NonDisposableEm
     private final Set<String> blocked;
 
     public EmailDomainValidator(
-            @Value("${app.security.disposable-email}") final Set<String> domains
+            @Value("${app.security.disposable-email-domains}") final Set<String> domains
     ){
         this.blocked = Set.copyOf(domains)
                 .stream()

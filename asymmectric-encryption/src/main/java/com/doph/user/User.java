@@ -44,7 +44,7 @@ public class User implements UserDetails {
     private LocalDate dateOfBirth;
     @Column(name = "IS_ENABLED")
     private boolean enabled;
-    @Column(name = "IS_ACCOUNT_CLOCKED")
+    @Column(name = "IS_ACCOUNT_LOCKED")
     private boolean locked;
     @Column(name = "IS_CREDENTIALS_EXPIRED")
     private boolean credentialsExpired;
@@ -94,7 +94,7 @@ public class User implements UserDetails {
 
     @Override
     public String getPassword(){
-        return this.getPassword();
+        return this.password;
     }
 
     @Override

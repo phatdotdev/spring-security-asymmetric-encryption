@@ -2,6 +2,7 @@ package com.doph.user;
 
 import com.doph.user.request.ChangePasswordRequest;
 import com.doph.user.request.ProfileUpdateRequest;
+import com.doph.user.response.UserResponse;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
@@ -16,6 +17,14 @@ import org.springframework.web.bind.annotation.*;
 public class UserController {
 
     private final UserService userService;
+    private final UserMapper userMapper;
+
+    @GetMapping("/me")
+    @ResponseStatus(HttpStatus.OK)
+    public UserResponse getUserInfo(final Authentication authentication){
+        final User user = (User) authentication.getPrincipal();
+        return this.userMapper.toUserResponse(user);
+    }
 
     @PatchMapping("/me")
     @ResponseStatus(code = HttpStatus.NO_CONTENT)
