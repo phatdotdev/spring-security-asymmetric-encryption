@@ -19,7 +19,7 @@ import org.springframework.security.web.authentication.UsernamePasswordAuthentic
 public class SecurityConfig {
 
 
-    private final JWTFilter jwtFilter;
+    private final JwtFilter jwtFilter;
     final String[] PUBLIC_URLS = {
             "/api/v1/auth/login",
             "/api/v1/auth/register",

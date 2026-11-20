@@ -589,3 +589,226 @@ public enum ErrorCode {
 
 }
 ````
+## 6. IMPLEMENT THE CONTROLLER
+### UserController
+````java
+@RestController
+@RequestMapping("/api/v1/users")
+@RequiredArgsConstructor
+@Tag(name = "User", description = "User API")
+public class UserController {
+
+    private final UserService userService;
+
+    @PatchMapping("/me")
+    @ResponseStatus(code = HttpStatus.NO_CONTENT)
+    public void updateProfileInfo(
+            @RequestBody @Valid final ProfileUpdateRequest request,
+           final Authentication authentication
+            ){
+        this.userService.updateProfileInformation(request, getUserId(authentication));
+    }
+
+    @PostMapping("/me/password")
+    @ResponseStatus(code = HttpStatus.NO_CONTENT)
+    public void changePassword(
+            @RequestBody @Valid ChangePasswordRequest request,
+            final Authentication authentication
+            ){
+        this.userService.changePassword(request, getUserId(authentication));
+    }
+
+    @PatchMapping("/me/deactivate")
+    @ResponseStatus(code = HttpStatus.NO_CONTENT)
+    public void deactivateAccount(final Authentication authentication){
+        this.userService.deactivateAccount(getUserId(authentication));
+    }
+
+    @PatchMapping("/me/activate")
+    @ResponseStatus(code = HttpStatus.NO_CONTENT)
+    public void reactivateAccount(final Authentication authentication){
+        this.userService.reactivateAccount(getUserId(authentication));
+    }
+
+    @DeleteMapping("/me")
+    public void deleteAccount(final Authentication authentication){
+        this.userService.deleteAccount(getUserId(authentication));
+    }
+
+    private String getUserId(final Authentication authentication){
+        return ((User) authentication.getPrincipal()).getId();
+    }
+}
+````
+## 7. Implement the JwtService
+### KeyUtils
+````java
+public class KeyUtils {
+    private KeyUtils(){
+    }
+
+    public static PrivateKey loadPrivateKey(final String pemPath) throws NoSuchAlgorithmException, InvalidKeySpecException {
+        final String key = readKeyFromResource(pemPath)
+                .replace("-----BEGIN PRIVATE KEY-----", "")
+                .replace("-----END PRIVATE KEY-----", "")
+                .replaceAll("\\s+", "");
+        final byte[] decoded = Base64.getDecoder().decode(key);
+        final PKCS8EncodedKeySpec spec = new PKCS8EncodedKeySpec(decoded);
+        return KeyFactory.getInstance("RSA").generatePrivate(spec);
+    }
+
+    public static PublicKey loadPublicKey(final String pemPath) throws NoSuchAlgorithmException, InvalidKeySpecException {
+        final String key = readKeyFromResource(pemPath)
+                .replace("-----BEGIN PUBLIC KEY-----", "")
+                .replace("-----END PUBLIC KEY-----", "")
+                .replaceAll("\\s+", "");
+        final byte[] decoded = Base64.getDecoder().decode(key);
+        final PKCS8EncodedKeySpec spec = new PKCS8EncodedKeySpec(decoded);
+        return KeyFactory.getInstance("RSA").generatePublic(spec);
+    }
+
+    private static String readKeyFromResource(final String pemPath){
+        try(final InputStream is = KeyUtils.class.getResourceAsStream(pemPath)) {
+            if(is == null){
+                throw new IllegalArgumentException(("Could not find key file " + pemPath));
+            }
+            return new String(is.readAllBytes());
+        }catch (IOException ex){
+            ex.printStackTrace();
+            return null;
+        }
+    }
+}
+````
+### JwtService
+````java
+@Service
+public class JwtService {
+
+    private static final String TOKEN_TYPE = "token_type";
+    private final PrivateKey privateKey;
+    private final PublicKey publicKey;
+    @Value("${app.security.jwt.access-token-expiration}")
+    private long accessTokenExpiration;
+    @Value("${app.security.jwt.refresh-token-expiration}")
+    private long refreshTokenExpiration;
+
+    public JwtService() throws NoSuchAlgorithmException, InvalidKeySpecException {
+        this.privateKey = KeyUtils.loadPrivateKey("keys/local-only/private_key.pem");
+        this.publicKey = KeyUtils.loadPublicKey("keys/local-only/public_key.pem");
+    }
+
+    public String generateAccessToken(final String username){
+        final Map<String, Object> claims = Map.of(TOKEN_TYPE, "ACCESS_TOKEN");
+        return buildToken(username, claims, this.accessTokenExpiration);
+    }
+
+    public String generateFreshToken(final String username){
+        final Map<String, Object> claims = Map.of(TOKEN_TYPE, "REFRESH_TOKEN");
+        return buildToken(username, claims, this.refreshTokenExpiration);
+    }
+
+    public boolean isTokenValid(final String token, final String expectedUsername){
+        final String username = extractUsername(token);
+        return username.equals(expectedUsername) && !isTokenExpired(token);
+    }
+
+    public String refreshAccessToken(final String refreshToken){
+        final Claims claims = extractClaims(refreshToken);
+        if(!"REFRESH_TOKEN".equals(claims.get("TOKEN_TYPE"))){
+            throw new RuntimeException("Invalid token type");
+        }
+        if(isTokenExpired(refreshToken)){
+            throw new RuntimeException("Refresh Token expired");
+        }
+        final String username = claims.getSubject();
+        return generateAccessToken(username);
+    }
+
+    private String buildToken(String username, Map<String, Object> claims, long expiration) {
+        return Jwts.builder()
+                .claims(claims)
+                .subject(username)
+                .issuedAt(new Date(System.currentTimeMillis()))
+                .expiration(new Date(System.currentTimeMillis() + expiration))
+                .signWith(this.privateKey)
+                .compact();
+    }
+
+    private String extractUsername(final String token){
+        return extractClaims(token).getSubject();
+    }
+
+    private Claims extractClaims(final String token){
+        try {
+            return Jwts.parser()
+                    .verifyWith(this.publicKey)
+                    .build()
+                    .parseSignedClaims(token)
+                    .getPayload();
+        } catch (final JwtException e){
+            throw new JwtException("Invalid JWT token", e);
+        }
+    }
+
+    private boolean isTokenExpired(final String token){
+        return extractClaims(token).getExpiration().before(new Date());
+    }
+}
+````
+### application.yml
+````yaml
+app:
+  security:
+    jwt:
+      access-token-expiration: 86400000 # 24 hours
+      refresh-token-expiration: 604800000 # 7 days
+````
+## 8. Implement JWT Filter
+### JwtFilter
+````java
+@Component
+@RequiredArgsConstructor
+public class JwtFilter extends OncePerRequestFilter {
+
+    private final JwtService jwtService;
+    private final UserDetailsService userDetailsService;
+
+    @Override
+    protected void doFilterInternal(
+            @NonNull
+            HttpServletRequest request,
+            @NonNull
+            HttpServletResponse response,
+            @NonNull
+            FilterChain filterChain) throws ServletException, IOException {
+        if(request.getServletPath().startsWith("/api/v1/auth")){
+            filterChain.doFilter(request, response);
+            return;
+        }
+        final String authHeader = request.getHeader(HttpHeaders.AUTHORIZATION);
+        final String jwt;
+        final String username;
+        if(authHeader == null || !authHeader.startsWith("Bearer")){
+            filterChain.doFilter(request, response);
+            return;
+        }
+        jwt = authHeader.substring(7);
+        username = this.jwtService.extractUsername(jwt);
+        if(username != null && SecurityContextHolder.getContext().getAuthentication() == null){
+            final UserDetails userDetails = this.userDetailsService.loadUserByUsername(username);
+
+            if(this.jwtService.isTokenValid(jwt, userDetails.getUsername())){
+                final UsernamePasswordAuthenticationToken authToken = new UsernamePasswordAuthenticationToken(
+                        userDetails,
+                        null,
+                        userDetails.getAuthorities()
+                );
+                authToken.setDetails(new WebAuthenticationDetailsSource().buildDetails(request));
+                SecurityContextHolder.getContext().setAuthentication(authToken);
+            }
+        }
+        filterChain.doFilter(request, response);
+    }
+}
+````
