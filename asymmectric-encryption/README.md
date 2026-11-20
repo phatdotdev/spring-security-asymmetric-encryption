@@ -1389,3 +1389,48 @@ USERNAME_NOT_FOUND("USERNAME_NOT_FOUND", "Username not found" , HttpStatus.NOT_F
 INTERNAL_EXCEPTION("INTERNAL_EXCEPTION", "Internal server error" , HttpStatus.INTERNAL_SERVER_ERROR),
 ENTITY_NOT_FOUND("ENTITY_NOTFOUND", "Entity not found" , HttpStatus.NOT_FOUND);
 ````
+## 16. Add the OpenAPI Configuration
+### OpenApiConfig
+````java
+@OpenAPIDefinition(
+        info = @Info(
+                contact = @Contact(
+                        name = "Spring security JWT asymmetric Encryption",
+                        email = "dtphat.130904@gmail.com",
+                        url = "https://github.com/phatdotdev"
+                ),
+                description = "OpenApi documentation for Spring Security project",
+                version = "1.0",
+                license = @License(
+                        name = "Licence DOPH",
+                        url = "https://github.com/phatdotdev"
+                ),
+                termsOfService = "https://github.com/phatdotdev"
+        ),
+        servers = {
+                @Server(
+                        url = "http://localhost:8080",
+                        description = "Development server"
+                ),
+                @Server(
+                        url = "http://prod.url",
+                        description = "Production server"
+                )
+        },
+        security = {
+                @SecurityRequirement(
+                        name = "bearerAuth"
+                )
+        }
+)
+@SecurityScheme(
+        name = "bearerAuth",
+        description = "JWT auth description",
+        scheme = "bearer",
+        type = SecuritySchemeType.HTTP,
+        bearerFormat = "JWT",
+        in = SecuritySchemeIn.HEADER
+)
+public class OpenApiConfig {
+}
+````
